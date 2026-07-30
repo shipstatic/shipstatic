@@ -1,0 +1,148 @@
+# CLAUDE.md
+
+Claude Code instructions for the **shipstatic** package.
+
+## Package Identity
+
+**shipstatic** is the unscoped name for `@shipstatic/ship`. It is a
+**forwarder**: a dependency plus a handful of one-line files that re-export the
+SDK and expose its CLI. From outside, `shipstatic` and `@shipstatic/ship` are
+indistinguishable, and that is the whole specification.
+
+**It has no API of its own, and must never grow one.** Anything worth adding
+belongs in `@shipstatic/ship`, where the implementation and its tests live. A
+forwarder that acquires behaviour stops being a name and becomes a layer — with
+its own bugs, its own release cadence, and two places to look. `tests/contract.test.js`
+asserts the dependency list stays a single entry.
+
+**Maturity:** Stable; semver applies. **Branches:** `main` only — see below.
+
+## Why this exists
+
+`npx @shipstatic/ship ./dist` works but does not read as the product's name.
+The unscoped name is the one a person types from memory, and npm runs a lone
+bin regardless of its name, so `npx shipstatic ./dist` reaches the `ship`
+binary with no second name invented for it.
+
+## Architecture
+
+Seven files, **no build step** — which is why `publint` and `attw` run against
+exactly what ships.
+
+| File | Role |
+|---|---|
+| `bin.cjs` | `require('@shipstatic/ship/cli')` — the binary, forwarded |
+| `index.cjs` | `module.exports = require('@shipstatic/ship')` — the CJS forward |
+| `index.mjs` | `export *` + `export { default }` — the ESM forward, and the `browser` one |
+| `index.d.cts` / `index.d.mts` | the same two lines per module format |
+
+### The bin loads in-process; it never spawns
+
+`@shipstatic/ship`'s command tree deliberately avoids `process.exit` so
+buffered stdout survives a pipe. A spawning trampoline would reintroduce
+exactly the truncation class that design prevents, and would have to re-plumb
+exit codes and signals besides. Requiring the CLI means this process **is** the
+CLI.
+
+### `./cli` is a declared subpath, not a path guess
+
+ship's `exports` map sealed everything but `.` until **1.1.0**. Before that,
+reaching `dist/cli.cjs` meant path-joining off the resolved main entry — past
+the map whose entire job is to say what is reachable. ship 1.1.0 added
+`"./cli"` and `"./package.json"` for this package. **Do not reintroduce the
+path-join; raise the dependency instead.**
+
+### Two type declaration files, not one
+
+TypeScript resolves declarations through the **same conditions** as the
+runtime: under `node16`, a `require` must land on CJS types and an `import` on
+ESM types. One shared `.d.ts` makes `attw` report a format mismatch on
+whichever half it does not match.
+
+### `export *` does not carry a default
+
+A language rule, not an oversight. Without the second line in `index.mjs` /
+`index.d.mts`, `import Ship from 'shipstatic'` resolves to **undefined** while
+every named import keeps working — a break that reaches users rather than CI.
+`tests/forward.test.js` asserts the default export specifically.
+
+## Versioning: the majors move together
+
+**The wrapper's version mirrors ship's, and the dependency is `^` at the same
+version.** This is not cosmetic. The forwarded API *is* ship's API, so semver
+here is a claim about ship's surface; mirroring makes that claim true by
+construction.
+
+**The trap this guards** — when ship 2.0 takes `latest`, a wrapper still
+depending on `^1` would serve the OLD CLI under `npx shipstatic` while
+`npx @shipstatic/ship` served the new one. Both halves keep working, so nothing
+looks broken; the two names simply stop being the same thing. `tests/contract.test.js`
+fails when the majors diverge, so the mistake cannot ship quietly.
+
+A patch release of ship needs no release here — the caret carries it.
+
+## Branch model: `main` only
+
+Every other published package carries the `main` + `development` pair. This one
+does not, and the reason is structural rather than convenience: a forwarder for
+a **stable** line publishes to `latest` and has nothing to stage on a beta
+channel. It joins `integrations/gpt` and `integrations/action-example` as a
+recorded exemption.
+
+If this package ever needs to track a prerelease of ship, that is the moment to
+add `development` back — not before.
+
+## Testing
+
+```bash
+pnpm test:ci        # 22 tests
+pnpm check:package  # publint + attw over the real files
+pnpm lint
+```
+
+A forwarder has exactly **one** bug class: a forward that does not resolve. So
+the suite targets it directly, and does so by spawning **real Node** — for a
+package whose only subject is module resolution, testing through a runner's own
+resolver would test the wrong thing. `tests/fixtures/probe.{cjs,mjs}` run
+inside the package, so `require('shipstatic')` exercises the published exports
+map through Node's resolver (package self-reference).
+
+| File | Holds |
+|---|---|
+| `forward.test.js` | identity — same module instance, same default, same named exports, in both module systems |
+| `bin.test.js` | the binary, diffed against ship's own for stdout, stderr and exit code |
+| `contract.test.js` | the drift fences below |
+
+**The fences**, each of which was proven to fire before being committed:
+
+- **Condition mirror** — every condition ship declares has a counterpart here.
+  ship owns which conditions exist; the day it adds `deno` or `worker`, a
+  consumer resolving under it would silently fall through to a condition meant
+  for somewhere else.
+- **Major alignment** — the cutover trap above, made mechanical.
+- **Artifact completeness** — every path the manifest references exists and is
+  in `files`. A condition added without a `files` entry resolves locally and
+  404s for everyone else, which is the failure that only appears *after*
+  publishing, when the version is already immutable.
+
+### `attw` ignores `false-export-default`, deliberately
+
+attw reports "Incorrect default export" for `node16 (from CJS)`. **Published
+`@shipstatic/ship` carries the identical verdict** — it is inherited, not
+introduced, and it is a false positive: ship's post-build assigns a real
+`.default` property, so the access attw predicts will fail actually works.
+`tests/forward.test.js` proves that against real Node.
+
+Fixing it here — switching `index.d.cts` to `export =` — would make this
+package's types *differ from ship's*, which is the one thing a forwarder must
+never do. The rule is ignored; the behaviour is fenced.
+
+## Release
+
+Same publish law as every other npm repo: the version picks the channel, the
+branch grants the right. Bump `package.json` and push to `main` — the merge IS
+the release. See root `CLAUDE.md`, "The npm publish law".
+
+---
+
+*This file provides Claude Code guidance. User-facing documentation lives in README.md — and it deliberately does not restate ship's, since a forwarder that copies its target's docs is just a second copy to keep true.*
