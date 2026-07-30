@@ -85,17 +85,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # `npm-latest` carries a main-only deployment branch policy, so publishing
-    # `latest` off any other branch is refused by GitHub before a step runs.
+    # `latest` off `main` is refused by GitHub before a step runs.
     environment: npm-${{ needs.version.outputs.tag }}
     permissions:
       contents: read
       id-token: write
-    # Hoisted so the notify steps can test for it. `secrets` is not readable
-    # from a step-level `if:`, and the Slack action fails outright on an empty
-    # webhook rather than skipping — which turned a SUCCESSFUL publish into a
-    # red run the first time this workflow fired.
-    env:
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
     steps:
       - uses: actions/checkout@v7
 
@@ -120,15 +114,14 @@ jobs:
       # only in its absence.
       - run: npm publish --access public --provenance --tag "${{ needs.version.outputs.tag }}"
 
-      - if: env.SLACK_WEBHOOK_URL != ''
-        uses: slackapi/slack-github-action@v4
+      - uses: slackapi/slack-github-action@v4
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
           payload: |
             text: "✅ shipstatic ${{ needs.version.outputs.version }} published (${{ needs.version.outputs.tag }})"
 
-      - if: failure() && env.SLACK_WEBHOOK_URL != ''
+      - if: failure()
         uses: slackapi/slack-github-action@v4
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
