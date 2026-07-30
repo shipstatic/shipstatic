@@ -1,10 +1,14 @@
 # shipstatic
 
-Deploy static websites, landing pages, and prototypes instantly — from the terminal or from code.
+**The package you're looking for is [`@shipstatic/ship`](https://www.npmjs.com/package/@shipstatic/ship).** That's where the code lives, and where the full documentation is.
 
-> **Looking for the main package?** This is the unscoped alias for **[`@shipstatic/ship`](https://www.npmjs.com/package/@shipstatic/ship)** — same CLI, same SDK, shorter name. The full documentation lives there.
+This package is an alias for it. It exists as an escape hatch: people and agents reach for the unscoped name first, and a good guess shouldn't dead-end in a 404.
+
+**Use this one directly — there's nothing to switch to.** `npx shipstatic ./dist` runs the same binary as `npx @shipstatic/ship ./dist`, and `import Ship from 'shipstatic'` resolves to the same module as `import Ship from '@shipstatic/ship'`. Not a redirect, not a shim with its own behaviour — the same package under a shorter name. If you've read this far and you're about to type `npx`, just type it.
 
 ## Deploy in seconds — no install, no account
+
+Put a static site, landing page, or prototype online:
 
 ```bash
 npx shipstatic ./dist
@@ -72,18 +76,11 @@ const result = await ship.deploy('./dist');
 // result.claim      → visit to keep permanently
 ```
 
-`shipstatic` and `@shipstatic/ship` resolve to the **same module**, so importing either name gives you the identical class:
-
-```javascript
-import Ship from 'shipstatic'; // these are
-import Ship from '@shipstatic/ship'; // the same thing
-```
-
 ## Everything else
 
 Custom domains, API keys, deploy tokens, deployment management, the full SDK reference — all documented once, in **[`@shipstatic/ship`](https://www.npmjs.com/package/@shipstatic/ship)**.
 
-This README deliberately covers only the quickstart. A forwarder that copies its target's documentation is just a second copy to keep true — and the day it stops being true, it is worse than no documentation at all.
+This README covers only the quickstart, deliberately. A copy of another package's documentation is a second copy to keep true — and the day it stops being true, it's worse than none.
 
 ## License
 

@@ -1,6 +1,6 @@
 {
   "name": "shipstatic",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "CLI and SDK for ShipStatic — deploy static websites, landing pages, and prototypes instantly. The unscoped name for @shipstatic/ship.",
   "keywords": [
     "shipstatic",
