@@ -7,26 +7,8 @@ import { ROOT } from './helpers.js';
 const require_ = createRequire(import.meta.url);
 const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
 // Readable only because ship 1.1.0 exports "./package.json" — the same release
-// that added "./cli". Before it, this fence could not have been written.
+// that added "./cli". Before it, these fences could not have been written.
 const shipPkg = JSON.parse(readFileSync(require_.resolve('@shipstatic/ship/package.json'), 'utf8'));
-
-/**
- * Subpaths ship exports that this package deliberately does NOT mirror.
- *
- * Recorded rather than merely absent: an unexplained gap reads as an oversight
- * to the next person, who then "fixes" it. The fence below fails on any subpath
- * that is neither mirrored nor named here — and separately, on a record that
- * has gone stale.
- */
-const UNMIRRORED_SUBPATHS = {
-  './cli':
-    "exists on ship SOLELY so this package's bin can require it. Mirroring it " +
-    'would forward a forwarder — shipstatic/cli resolving to bin.cjs, whose only ' +
-    'content is require("@shipstatic/ship/cli") — and would publish plumbing as ' +
-    'public surface from a package whose identity is having no API of its own. ' +
-    'No caller has a reason to reach it: the thing ./cli exists to serve is the ' +
-    'bin, and this package IS that bin.',
-};
 
 /** Every local file path a manifest field points at, flattened. */
 function referencedPaths(value, found = []) {
@@ -38,12 +20,20 @@ function referencedPaths(value, found = []) {
   return found;
 }
 
+/** Compare two semver cores numerically, ignoring any prerelease suffix. */
+function compareVersions(a, b) {
+  const core = (v) => v.split('-')[0].split('.').map(Number);
+  const [aMaj, aMin, aPat] = core(a);
+  const [bMaj, bMin, bPat] = core(b);
+  return aMaj - bMaj || aMin - bMin || aPat - bPat;
+}
+
 describe('the forward mirrors ship', () => {
   it('declares every condition ship declares', () => {
-    // THE drift fence. ship owns which conditions exist; this package only
-    // forwards them. The day ship adds one — `deno`, `worker`, `react-native` —
-    // a consumer resolving `shipstatic` under it would silently fall through to
-    // a condition meant for somewhere else. This fails instead, and names it.
+    // ship owns which conditions exist; this package only forwards them. The
+    // day it adds one — `deno`, `worker`, `react-native` — a consumer resolving
+    // `shipstatic` under it would silently fall through to a condition meant for
+    // somewhere else. This fails instead, and names it.
     const shipConditions = Object.keys(shipPkg.exports['.']);
     const ourConditions = Object.keys(pkg.exports['.']);
     const missing = shipConditions.filter((c) => !ourConditions.includes(c));
@@ -56,12 +46,32 @@ describe('the forward mirrors ship', () => {
     ).toEqual([]);
   });
 
+  it('mirrors every subpath ship exports — all of them, no exceptions', () => {
+    // Absolute on purpose. An earlier revision let `./cli` go unmirrored on the
+    // grounds that it is plumbing rather than API, recorded behind an exception
+    // list. But an exports map has no "internal" concept — that is the whole
+    // reason ./cli had to be ADDED to ship rather than path-joined around — so
+    // "declared but not really public" is not a distinction this package gets to
+    // make. `require('shipstatic/cli')` throwing while
+    // `require('@shipstatic/ship/cli')` runs is a from-outside difference, in one
+    // line of Node. Mirroring it also deleted the exception list and its second
+    // fence, which is the tell that the exception was the complicated option.
+    const missing = Object.keys(shipPkg.exports).filter((subpath) => !(subpath in pkg.exports));
+
+    expect(
+      missing,
+      `@shipstatic/ship exports ${missing.join(', ')} and this package does not. ` +
+        'Mirror it: anything resolvable on ship must resolve here, or the two names ' +
+        'are distinguishable from outside.',
+    ).toEqual([]);
+  });
+
   it("tracks ship's MAJOR version", () => {
-    // The cutover trap, made mechanical. When ship 2.0 takes `latest`, a
-    // wrapper still depending on ^1 would serve the OLD CLI under
-    // `npx shipstatic` while `npx @shipstatic/ship` served the new one — the
-    // exact divergence this package exists to prevent, and entirely invisible
-    // because both halves keep working. Bump both together, or fail here.
+    // The cutover trap. When ship 2.0 takes `latest`, a wrapper still depending
+    // on ^1 would serve the OLD CLI under `npx shipstatic` while
+    // `npx @shipstatic/ship` served the new one — invisible, because both halves
+    // keep working. This reads the declared RANGE, so it fires on the manifest
+    // alone, before anything is installed.
     const ourMajor = pkg.version.split('.')[0];
     const depMajor = pkg.dependencies['@shipstatic/ship'].replace(/^\D*/, '').split('.')[0];
 
@@ -73,46 +83,40 @@ describe('the forward mirrors ship', () => {
     ).toBe(ourMajor);
   });
 
-  it('mirrors every subpath ship exports, or records why not', () => {
-    // The condition fence above watches `.`; this one watches the KEYS beside
-    // it. If ship ever adds a real API subpath — drop publishes a `./testing`,
-    // so it is not hypothetical — a forwarder that silently lacks it is no
-    // longer interchangeable, and nothing would have said so.
-    const unexplained = Object.keys(shipPkg.exports).filter(
-      (subpath) => !(subpath in pkg.exports) && !(subpath in UNMIRRORED_SUBPATHS),
-    );
-
+  it('never lags the ship version it actually resolves', () => {
+    // Lockstep, as a fence rather than a promise — because the sentence this
+    // replaces ("the caret carries it") was ALSO policy, and policy is what
+    // failed. `npx` re-resolves this package's version but reuses the dependency
+    // tree frozen in a cached install, so a wrapper that forgets to bump serves
+    // a stale SDK indefinitely while `npx @shipstatic/ship` serves the new one.
+    //
+    // Reads the INSTALLED version, which is what makes it bite: Renovate's
+    // lockfile PR is what pulls a new ship in, and that PR now goes red until
+    // the version bump rides along with it. The major fence above cannot catch
+    // this — it compares against the declared range, which `^1.1.0` satisfies
+    // all the way to 1.9.9.
+    //
+    // `>=`, not `===`: a wrapper-only emergency release must not deadlock.
     expect(
-      unexplained,
-      `@shipstatic/ship exports ${unexplained.join(', ')} and this package neither ` +
-        'mirrors it nor records why. Add it to exports, or to UNMIRRORED_SUBPATHS ' +
-        'with the reason.',
-    ).toEqual([]);
+      compareVersions(pkg.version, shipPkg.version),
+      `this package is ${pkg.version} but resolves @shipstatic/ship ` +
+        `${shipPkg.version}. Bump this package to ${shipPkg.version} — every ship ` +
+        'release gets one here, or npx caches serve a stale SDK under this name.',
+    ).toBeGreaterThanOrEqual(0);
   });
 
-  it('keeps its recorded non-mirrors honest', () => {
-    // A record that outlives the thing it describes is worse than no record —
-    // it documents a decision about a subpath that no longer exists.
-    for (const subpath of Object.keys(UNMIRRORED_SUBPATHS)) {
-      expect(
-        shipPkg.exports[subpath],
-        `${subpath} is recorded as deliberately unmirrored, but ship no longer ` +
-          'exports it. Delete the record.',
-      ).toBeDefined();
-    }
-  });
-
-  it('depends on a ship new enough to expose ./cli', () => {
-    // bin.cjs requires the declared subpath, which did not exist before 1.1.0.
+  it('depends on a ship that still exposes ./cli', () => {
+    // bin.cjs requires that subpath. Nothing else here would notice if ship
+    // withdrew it — the mirror fence only looks at what ship DOES export.
     expect(shipPkg.exports['./cli']).toBeDefined();
   });
 });
 
 describe('the published artifact is complete', () => {
   it('ships every file its manifest points at', () => {
-    // A condition added without a matching `files` entry produces a package
-    // that resolves locally and 404s for everyone else — the failure that only
-    // appears after publishing, when the version is already immutable.
+    // A condition added without a matching `files` entry produces a package that
+    // resolves locally and 404s for everyone else — the failure that only appears
+    // after publishing, when the version is already immutable.
     const referenced = new Set([
       ...referencedPaths(pkg.exports),
       ...referencedPaths(pkg.bin),

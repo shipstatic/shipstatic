@@ -39,6 +39,20 @@ describe('the forwarded binary', () => {
     expect(stdout.length).toBeGreaterThan(500);
   });
 
+  it.each([
+    { name: '--help', args: ['--help'] },
+    { name: '--version', args: ['--version'] },
+  ])('is reachable through the ./cli subpath for $name', ({ args }) => {
+    // `require('shipstatic/cli')` must run the CLI exactly as
+    // `require('@shipstatic/ship/cli')` does. Ship declares that subpath, so
+    // this package mirrors it — anything resolvable on ship resolves here.
+    const viaSubpath = runNode([join(ROOT, 'tests/fixtures/cli-subpath.cjs'), ...args]);
+    const direct = runNode([SHIP_BIN, ...args]);
+
+    expect(viaSubpath.stdout).toBe(direct.stdout);
+    expect(viaSubpath.exitCode).toBe(direct.exitCode);
+  });
+
   it("reports ship's version, because the CLI it runs IS ship's", () => {
     const { stdout } = runNode([WRAPPER_BIN, '--version']);
     expect(stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);

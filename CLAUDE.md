@@ -98,6 +98,14 @@ Under the publish law that costs one line and a push, so there is no reason not
 to. Renovate's lockfile PR is the trigger: it fires when ship publishes, and the
 version bump rides that PR.
 
+**And it is a fence, not a promise** — because the sentence lockstep replaced
+was *also* policy, and policy is what failed. `contract.test.js` asserts this
+package's version is `>=` the ship version it actually **resolves**, so
+Renovate's lockfile PR goes red until the bump rides along. The major fence
+cannot catch this: it reads the declared range, which `^1.1.0` satisfies all the
+way to 1.9.9. `>=` rather than `===` so a wrapper-only emergency release does
+not deadlock.
+
 **The dependency stays a caret even so** — `^`, not an exact pin, and the reason
 is dependency-tree shape rather than freshness. With an exact pin, a project
 depending on both `shipstatic` and `@shipstatic/ship@^1` would resolve **two
@@ -105,33 +113,40 @@ copies** of the SDK the moment their versions diverged, and `instanceof` across
 the two names would start returning false. The caret dedupes them to one. One
 SDK per tree is a correctness property, not an optimisation.
 
-## Two asymmetries that are correct, and must stay
+## Everything ship exports, this package exports
 
-Both look like gaps. Both were raised in review, considered, and declined —
-recorded here so they are not "fixed" into the package later.
+**No exceptions, including `./cli`.** An earlier revision left that one
+unmirrored, arguing it is plumbing rather than API — it exists on ship only so
+this package's bin can require it. That reasoning does not survive contact with
+the specification: **an exports map has no "internal" concept.** That is the
+exact reason `./cli` had to be *added* to ship rather than path-joined around,
+so "declared but not really public" is not a distinction this package gets to
+make about ship's own surface. `require('shipstatic/cli')` throwing while
+`require('@shipstatic/ship/cli')` runs is a from-outside difference, observable
+in one line of Node.
+
+`"./cli": "./bin.cjs"` — the same file the `bin` field points at, and requiring
+it *is* running the binary. Node strips the shebang, so the two are byte-equal
+in behaviour; `tests/bin.test.js` diffs the subpath against ship's binary.
+
+The simplicity argument ran the same way, which is what made it decisive: the
+exception needed a recorded list, a second fence to keep that list honest, and a
+paragraph here. Mirroring deleted all three and added one line. **The subpath
+fence is now absolute** — anything resolvable on ship must resolve here.
+
+## The one asymmetry that is correct, and must stay
 
 **The command is `ship`, not `shipstatic`.** `npm install -g shipstatic` puts
 `ship` on PATH, so typing `shipstatic` gives command-not-found, and installing
 both packages globally collides on the `ship` bin. Adding a second bin named
-`shipstatic` would fix the papercut and **break the specification**: the two
-packages would then expose different commands, which is precisely what
-"indistinguishable" forbids. The command belongs to ship. A package name that
-differs from its command is ordinary besides — `@angular/cli` gives you `ng`.
+`shipstatic` would fix that papercut by **breaking the specification**:
+`npm i -g @shipstatic/ship` installs only a `ship` command, so a `shipstatic`
+command would be surface ship does not have — a public, feelable difference
+between the two installs. The command belongs to ship. A package name differing
+from its command is ordinary besides — `@angular/cli` gives you `ng`.
 
-`npx shipstatic` still works regardless, because npm runs a package's lone bin
+`npx shipstatic` works regardless, because npm runs a package's lone bin
 whatever its name.
-
-**`shipstatic/cli` does not resolve, though `@shipstatic/ship/cli` does.** The
-one unmirrored subpath, and deliberately so — mirroring it would forward a
-forwarder, since the only file to point at is `bin.cjs`, whose entire content is
-`require('@shipstatic/ship/cli')`. `./cli` exists on ship *solely* so this
-package's bin can reach it; the thing it serves is the bin, and this package IS
-that bin. Publishing it here would put plumbing in the public surface of a
-package whose identity is having no API of its own.
-
-It is recorded in `UNMIRRORED_SUBPATHS` (`tests/contract.test.js`) rather than
-merely absent, and the fence fails both ways: on a subpath ship adds that is
-neither mirrored nor recorded, and on a record that has gone stale.
 
 ## Branch model: `main` only
 
