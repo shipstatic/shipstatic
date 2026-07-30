@@ -90,6 +90,12 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    # Hoisted so the notify steps can test for it. `secrets` is not readable
+    # from a step-level `if:`, and the Slack action fails outright on an empty
+    # webhook rather than skipping — which turned a SUCCESSFUL publish into a
+    # red run the first time this workflow fired.
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
     steps:
       - uses: actions/checkout@v7
 
@@ -114,14 +120,15 @@ jobs:
       # only in its absence.
       - run: npm publish --access public --provenance --tag "${{ needs.version.outputs.tag }}"
 
-      - uses: slackapi/slack-github-action@v4
+      - if: env.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@v4
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
           payload: |
             text: "✅ shipstatic ${{ needs.version.outputs.version }} published (${{ needs.version.outputs.tag }})"
 
-      - if: failure()
+      - if: failure() && env.SLACK_WEBHOOK_URL != ''
         uses: slackapi/slack-github-action@v4
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
