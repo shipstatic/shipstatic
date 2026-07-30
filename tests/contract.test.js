@@ -10,6 +10,24 @@ const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
 // that added "./cli". Before it, this fence could not have been written.
 const shipPkg = JSON.parse(readFileSync(require_.resolve('@shipstatic/ship/package.json'), 'utf8'));
 
+/**
+ * Subpaths ship exports that this package deliberately does NOT mirror.
+ *
+ * Recorded rather than merely absent: an unexplained gap reads as an oversight
+ * to the next person, who then "fixes" it. The fence below fails on any subpath
+ * that is neither mirrored nor named here — and separately, on a record that
+ * has gone stale.
+ */
+const UNMIRRORED_SUBPATHS = {
+  './cli':
+    "exists on ship SOLELY so this package's bin can require it. Mirroring it " +
+    'would forward a forwarder — shipstatic/cli resolving to bin.cjs, whose only ' +
+    'content is require("@shipstatic/ship/cli") — and would publish plumbing as ' +
+    'public surface from a package whose identity is having no API of its own. ' +
+    'No caller has a reason to reach it: the thing ./cli exists to serve is the ' +
+    'bin, and this package IS that bin.',
+};
+
 /** Every local file path a manifest field points at, flattened. */
 function referencedPaths(value, found = []) {
   if (typeof value === 'string') {
@@ -53,6 +71,35 @@ describe('the forward mirrors ship', () => {
         `${pkg.dependencies['@shipstatic/ship']}. The forwarded API IS ship's API, so ` +
         'the majors move together.',
     ).toBe(ourMajor);
+  });
+
+  it('mirrors every subpath ship exports, or records why not', () => {
+    // The condition fence above watches `.`; this one watches the KEYS beside
+    // it. If ship ever adds a real API subpath — drop publishes a `./testing`,
+    // so it is not hypothetical — a forwarder that silently lacks it is no
+    // longer interchangeable, and nothing would have said so.
+    const unexplained = Object.keys(shipPkg.exports).filter(
+      (subpath) => !(subpath in pkg.exports) && !(subpath in UNMIRRORED_SUBPATHS),
+    );
+
+    expect(
+      unexplained,
+      `@shipstatic/ship exports ${unexplained.join(', ')} and this package neither ` +
+        'mirrors it nor records why. Add it to exports, or to UNMIRRORED_SUBPATHS ' +
+        'with the reason.',
+    ).toEqual([]);
+  });
+
+  it('keeps its recorded non-mirrors honest', () => {
+    // A record that outlives the thing it describes is worse than no record —
+    // it documents a decision about a subpath that no longer exists.
+    for (const subpath of Object.keys(UNMIRRORED_SUBPATHS)) {
+      expect(
+        shipPkg.exports[subpath],
+        `${subpath} is recorded as deliberately unmirrored, but ship no longer ` +
+          'exports it. Delete the record.',
+      ).toBeDefined();
+    }
   });
 
   it('depends on a ship new enough to expose ./cli', () => {

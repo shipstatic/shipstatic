@@ -79,7 +79,59 @@ depending on `^1` would serve the OLD CLI under `npx shipstatic` while
 looks broken; the two names simply stop being the same thing. `tests/contract.test.js`
 fails when the majors diverge, so the mistake cannot ship quietly.
 
-A patch release of ship needs no release here — the caret carries it.
+### Lockstep: every ship release gets a release here
+
+**Mirror every ship version, including patches.** An earlier draft of this file
+said "a patch release of ship needs no release here — the caret carries it."
+That is true for a fresh `npm install` and **false for `npx`**, which is this
+package's headline entry point.
+
+`npx shipstatic` re-resolves *this* package's version each run, but a cache hit
+reuses the dependency tree frozen inside it. So if ship publishes 1.1.1 and the
+wrapper stays at 1.1.0, every existing `npx shipstatic` cache keeps serving ship
+1.1.0 — indefinitely — while `npx @shipstatic/ship` serves 1.1.1. The two names
+stop being the same thing, silently, which is the one failure this package
+exists to prevent. A wrapper adds a staleness layer a direct package does not
+have, and a bump is the only thing that clears it.
+
+Under the publish law that costs one line and a push, so there is no reason not
+to. Renovate's lockfile PR is the trigger: it fires when ship publishes, and the
+version bump rides that PR.
+
+**The dependency stays a caret even so** — `^`, not an exact pin, and the reason
+is dependency-tree shape rather than freshness. With an exact pin, a project
+depending on both `shipstatic` and `@shipstatic/ship@^1` would resolve **two
+copies** of the SDK the moment their versions diverged, and `instanceof` across
+the two names would start returning false. The caret dedupes them to one. One
+SDK per tree is a correctness property, not an optimisation.
+
+## Two asymmetries that are correct, and must stay
+
+Both look like gaps. Both were raised in review, considered, and declined —
+recorded here so they are not "fixed" into the package later.
+
+**The command is `ship`, not `shipstatic`.** `npm install -g shipstatic` puts
+`ship` on PATH, so typing `shipstatic` gives command-not-found, and installing
+both packages globally collides on the `ship` bin. Adding a second bin named
+`shipstatic` would fix the papercut and **break the specification**: the two
+packages would then expose different commands, which is precisely what
+"indistinguishable" forbids. The command belongs to ship. A package name that
+differs from its command is ordinary besides — `@angular/cli` gives you `ng`.
+
+`npx shipstatic` still works regardless, because npm runs a package's lone bin
+whatever its name.
+
+**`shipstatic/cli` does not resolve, though `@shipstatic/ship/cli` does.** The
+one unmirrored subpath, and deliberately so — mirroring it would forward a
+forwarder, since the only file to point at is `bin.cjs`, whose entire content is
+`require('@shipstatic/ship/cli')`. `./cli` exists on ship *solely* so this
+package's bin can reach it; the thing it serves is the bin, and this package IS
+that bin. Publishing it here would put plumbing in the public surface of a
+package whose identity is having no API of its own.
+
+It is recorded in `UNMIRRORED_SUBPATHS` (`tests/contract.test.js`) rather than
+merely absent, and the fence fails both ways: on a subpath ship adds that is
+neither mirrored nor recorded, and on a record that has gone stale.
 
 ## Branch model: `main` only
 
