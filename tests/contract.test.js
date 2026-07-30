@@ -112,6 +112,46 @@ describe('the forward mirrors ship', () => {
   });
 });
 
+describe('the README is under contract', () => {
+  // This package publishes a quickstart, which means it can now teach a flag
+  // the forwarded CLI does not have — and an agent reading it will execute
+  // exactly what it finds. @shipstatic/ship fences its own docs the same way.
+  // Reads through the ./cli subpath, which is the file the bin runs.
+  const readme = readFileSync(join(ROOT, 'README.md'), 'utf8');
+  const cliSource = readFileSync(require_.resolve('@shipstatic/ship/cli'), 'utf8');
+
+  it('teaches no CLI flag that ship does not define', () => {
+    const documented = [...new Set(readme.match(/--[a-z][a-z-]+/g) ?? [])];
+    const missing = documented.filter(
+      (flag) => !cliSource.includes(`'${flag}`) && !cliSource.includes(`"${flag}`),
+    );
+
+    expect(
+      missing,
+      `README documents ${missing.join(', ')}, which @shipstatic/ship@` +
+        `${shipPkg.version} does not define. The quickstart must describe the CLI ` +
+        'this package actually forwards.',
+    ).toEqual([]);
+  });
+
+  it('teaches no environment variable that ship does not read', () => {
+    const documented = [...new Set(readme.match(/\bSHIP_[A-Z_]+\b/g) ?? [])];
+    const missing = documented.filter((name) => !cliSource.includes(name));
+
+    expect(
+      missing,
+      `README documents ${missing.join(', ')}, which @shipstatic/ship@` +
+        `${shipPkg.version} never reads.`,
+    ).toEqual([]);
+  });
+
+  it('points at the scoped package it forwards to', () => {
+    // The disambiguation link. Someone — or something — landing here from a
+    // search should be able to reach the full documentation in one hop.
+    expect(readme).toContain('https://www.npmjs.com/package/@shipstatic/ship');
+  });
+});
+
 describe('the published artifact is complete', () => {
   it('ships every file its manifest points at', () => {
     // A condition added without a matching `files` entry produces a package that

@@ -204,6 +204,35 @@ Fixing it here — switching `index.d.cts` to `export =` — would make this
 package's types *differ from ship's*, which is the one thing a forwarder must
 never do. The rule is ignored; the behaviour is fenced.
 
+## The README is a quickstart, and it is fenced
+
+**Scope: the anonymous deploy, `--password`, and the machine-readable channel.
+Nothing else.** Everything past that — domains, credentials, deployment
+management, the SDK reference — is one link to `@shipstatic/ship`. A forwarder
+that copies its target's documentation is a second copy to keep true, and the
+day it stops being true it is worse than none.
+
+**Why a quickstart at all, rather than a bare pointer:** this README is what an
+**agent** reaches. An agent that lands here and cannot act has to go find
+another page; one that can act deploys in a single command. So the first code
+block is a runnable command with a concrete path, the non-obvious constraints
+are stated inline (anonymous deploys are **public** and **expire in 3 days**),
+and there is a section naming the things a program needs rather than a person —
+`--json` on success *and* failure, exit codes, `SHIP_PASSWORD`, branch on
+`error`/`status` and never on message text.
+
+**Publishing docs creates a drift surface, so it is under contract.**
+`contract.test.js` extracts every `--flag` and every `SHIP_*` variable the
+README mentions and asserts ship's CLI actually defines them — reading through
+the `./cli` subpath, the same file the bin runs. Documenting a flag ship dropped
+would otherwise ship an instruction an agent will execute verbatim. Both halves
+are proven to fire.
+
+The scope is also why the quickstart avoids credential flags entirely: 1.x
+spells them `--api-key` / `--deploy-token` and 2.x spells the slot differently,
+so teaching them here would buy a rewrite at the cutover for something the
+anonymous path does not need.
+
 ## Release
 
 Same publish law as every other npm repo: the version picks the channel, the
@@ -212,4 +241,4 @@ the release. See root `CLAUDE.md`, "The npm publish law".
 
 ---
 
-*This file provides Claude Code guidance. User-facing documentation lives in README.md — and it deliberately does not restate ship's, since a forwarder that copies its target's docs is just a second copy to keep true.*
+*This file provides Claude Code guidance. User-facing documentation lives in README.md.*

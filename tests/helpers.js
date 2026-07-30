@@ -28,8 +28,20 @@ function hermeticEnv() {
   };
 }
 
-/** Run a node script under the hermetic environment, capturing everything. */
-export function runNode(args, { cwd = ROOT } = {}) {
+/**
+ * Run a node script hermetically, capturing everything.
+ *
+ * **`cwd` is a throwaway directory, not the repo**, and that is load-bearing
+ * rather than tidy: ship's config loader (cosmiconfig) searches UPWARD from the
+ * working directory, so running from anywhere inside a developer's home tree
+ * finds their real `~/.shiprc` no matter what `HOME` says. Isolating `HOME`
+ * alone is not enough — measured, not theorised.
+ *
+ * Nothing needs the repo as cwd: the scripts under test are passed as absolute
+ * paths, and the fixtures reach this package by self-reference, which resolves
+ * from the FILE's location.
+ */
+export function runNode(args, { cwd = mkdtempSync(join(tmpdir(), 'shipstatic-cwd-')) } = {}) {
   try {
     const stdout = execFileSync(process.execPath, args, {
       cwd,
