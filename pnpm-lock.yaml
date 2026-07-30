@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@shipstatic/ship':
-        specifier: ^1.2.0
-        version: 1.2.0
+        specifier: ^1.3.0
+        version: 1.3.0
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: ^0.18.5
@@ -227,8 +227,8 @@ packages:
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
-  '@shipstatic/ship@1.2.0':
-    resolution: {integrity: sha512-nfkdzSI5+4KiViSToTK4PoCOrP+6gLOgTIe6lg08Dy1Nk88jZRvNSSZTGqP1qZ1A+j6nwjSMyzWHW6U9MyhRVg==}
+  '@shipstatic/ship@1.3.0':
+    resolution: {integrity: sha512-pXLhShIx1hpEDdbXq4BixNIujmiUFkGeWKAi+htsRmLxGKrEHSbK4NgdOBJ2CKRyMCllDbRV8k+qGJBvaIIPmw==}
     engines: {node: '>=20.0.0'}
     hasBin: true
 
@@ -1003,7 +1003,7 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.1': {}
 
-  '@shipstatic/ship@1.2.0':
+  '@shipstatic/ship@1.3.0':
     dependencies:
       columnify: 1.6.0
       commander: 12.1.0

@@ -28,8 +28,8 @@ npx shipstatic ./index.html
 
 | | |
 |---|---|
-| `npx shipstatic ./dist` | **Nothing.** No account, no API key, no deploy token, no login. |
-| Every other command — domains, tokens, `whoami`, listing deployments | **Requires an API key.** |
+| **Deploying** — `npx shipstatic ./dist`, and `npx shipstatic deployments upload ./dist` | **Nothing.** No account, no API key, no deploy token, no login. |
+| **Everything else** — domains, tokens, `whoami`, listing deployments | **Requires an API key.** |
 
 > **`ship whoami` failing is normal** without a key, and it says nothing about deploying. An authentication error from any other command is not a reason the deploy won't work — run the deploy anyway. It stays anonymous.
 

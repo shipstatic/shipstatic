@@ -1,6 +1,6 @@
 {
   "name": "shipstatic",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "CLI and SDK for ShipStatic — deploy static websites, landing pages, and prototypes instantly. The unscoped name for @shipstatic/ship.",
   "keywords": [
     "shipstatic",
@@ -62,7 +62,7 @@
     "format": "biome format --write ."
   },
   "dependencies": {
-    "@shipstatic/ship": "^1.2.0"
+    "@shipstatic/ship": "^1.3.0"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
