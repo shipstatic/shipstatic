@@ -24,6 +24,17 @@ npx shipstatic ./index.html
 
 > Anonymous deployments are **public** and **expire in 3 days**. The claim URL is how one becomes permanent — surface it to whoever asked for the deploy.
 
+## Auth — deploy needs none, everything else does
+
+| | |
+|---|---|
+| `npx shipstatic ./dist` | **Nothing.** No account, no API key, no deploy token, no login. |
+| Every other command — domains, tokens, `whoami`, listing deployments | **Requires an API key.** |
+
+> **`ship whoami` failing is normal** without a key, and it says nothing about deploying. An authentication error from any other command is not a reason the deploy won't work — run the deploy anyway. It stays anonymous.
+
+Need the rest? Get a free key at [my.shipstatic.com/api-key](https://my.shipstatic.com/api-key), then `ship config`.
+
 ## Common tasks
 
 | Goal | Command |
