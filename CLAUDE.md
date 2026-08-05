@@ -162,7 +162,7 @@ add `development` back — not before.
 ## Testing
 
 ```bash
-pnpm test:ci        # 22 tests
+pnpm test:ci        # 29 tests
 pnpm check:package  # publint + attw over the real files
 pnpm lint
 ```
